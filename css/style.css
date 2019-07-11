@@ -1,0 +1,59 @@
+* {
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+    outline: none;
+    list-style: none;
+    text-decoration: none;
+}
+
+#map {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0.5;
+}
+#map:hover {
+    opacity: 1;
+}
+#world canvas {
+    display: block;
+    margin: auto;
+    width: 100%;
+    max-width: 1200px;
+}
+#details {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    opacity: 0.5;
+    font-size: 12px;
+    font-family: arial;
+    padding: 20px;
+    border: 3px double #333;
+    min-width: 200px;
+    background-color: #fff;
+}
+
+#details:hover {
+    opacity: 1;
+}
+
+#details > div {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+}
+
+#details > div div:first-child {
+    width: 100px;
+    text-transform: capitalize;
+}
+
+.hint {
+    font-size: 24px;
+    color: #f00;
+    text-shadow: 0 1px #000, 1px 0 #000, 0 -1px #000, -1px 0 #000, 0 0 5px rgba(0,0,0,0.9);
+    text-align: center;
+    padding: 10px;
+}
