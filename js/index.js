@@ -9,6 +9,23 @@ const KEYCODE = {
     DOWN: 40,
 };
 
+const testMap = [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2],
+    [0, 2, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
+    [0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+    [0, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0],
+    [0, 2, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 0, 'p', 0, 0, 0, 0, 0],
+    [0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 2, 0, 0, 0],
+    [0, 2, 0, 0, 3, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0],
+    [0, 2, 0, 0, 3, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 2, 0, 0, 2],
+    [0, 2, 0, 0, 3, 0, 0, 3, 3, 0, 0, 2, 2, 2, 2, 2, 0, 0, 0],
+    [0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+];
+
 function distanceBetweenPoints(x1, y1, x2, y2) {
     return Math.sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
 }
@@ -79,17 +96,29 @@ class Minimap extends Canvas {
         super(MINIMAP);
         this.MINIMAP_SCALE_FACTOR = 0.5;
         // !!! with this you can set the playable area dimension
-        this.COLUMS = 16;
-        this.ROWS = 11;
-
         this.container = document.getElementById('map');
         this.mapTable = [[]];
         this.container.appendChild(this.el);
         this.el.onclick = this.mapClickToggle.bind(this);
         this.isCollided = this.isCollided.bind(this);
+        this.getObject = this.getObject.bind(this);
         this.draw = this.draw.bind(this);
         this.core = core;
-        this.generateMap(this.COLUMS, this.ROWS);
+        this.colorMap = [
+            null,
+            [200, 100, 200],
+            [200, 100, 0], 
+            [100, 0, 200],
+            [200, 100, 100],
+            [200, 50, 100]
+        ]
+    }
+
+    getObject(id) {
+        if (id === 0 || !this.colorMap[id]) return null;
+        return {
+            color: this.colorMap[id]
+        };
     }
 
     isBorderCell(x, y) {
@@ -99,14 +128,14 @@ class Minimap extends Canvas {
     }
 
     isBlockCell(x, y) {
-        return this.mapTable[y][x] !== 0;
+        return this.mapTable[y][x];
     }
 
     isCollided(x, y) {
         const { TILE_SIZE } = this.core;
         x = Math.floor(x / TILE_SIZE);
         y = Math.floor(y / TILE_SIZE);
-        return this.mapTable[y][x] !== 0;
+        return this.mapTable[y][x];
     }
 
     mapClickToggle(e) {
@@ -114,7 +143,7 @@ class Minimap extends Canvas {
         const x = Math.floor((e.clientX - this.el.offsetLeft) / TILE_SIZE / this.MINIMAP_SCALE_FACTOR);
         const y = Math.floor((e.clientY - this.el.offsetTop) / TILE_SIZE / this.MINIMAP_SCALE_FACTOR);
         if (this.isBorderCell(x, y)) { return; }
-        this.mapTable[y][x] = 1 - this.mapTable[y][x];
+        this.mapTable[y][x] = this.mapTable[y][x] ? 0 : ~~(Math.random() * this.colorMap.length - 1) + 1;
         this.core.player.update();
         this.core.update();
     }
@@ -131,17 +160,51 @@ class Minimap extends Canvas {
             }
             mapTable.push(row);
         }
-        this.MAX_Y = maxY;
-        this.MAX_X = maxX;
-        this.MAP_WIDTH = maxX * TILE_SIZE;
-        this.MAP_HEIGHT = maxY * TILE_SIZE;
+
+        this.mapTable = mapTable;
+        this.setMapSize(maxX, maxY);
+    }
+
+    loadMap(mapSource) {
+        const { TILE_SIZE } = this.core; 
+        const playableRow = mapSource.length;
+        const playableCol = mapSource[0].length;
+        const maxX = playableCol + 2;
+        const maxY = playableRow + 2;
+        const newMap = [];
+        const player = this.core.player;
+        let x, y;
+
+        for (y = 0; y < playableRow; y++) {
+            const row = [];
+            for (x = 0; x < playableCol; x++) {
+                if (mapSource[y][x] === 'p') {
+                    player.x = (x + 1.5) * TILE_SIZE;
+                    player.y = (y + 1.5) * TILE_SIZE;
+                    mapSource[y][x] = 0;
+                }
+            }
+            mapSource[y].push(1);
+            mapSource[y].unshift(1);
+        }
+        const borderRow = (new Array(maxX)).fill(1);
+        mapSource.push(borderRow);
+        mapSource.unshift(borderRow); 
+        this.mapTable = mapSource;
+        this.setMapSize(maxX, maxY);
+    }
+
+    setMapSize(col, row) {
+        const { TILE_SIZE, WALL_STRIP_WIDTH, FOV_ANGLE } = this.core; 
+        this.MAX_Y = row;
+        this.MAX_X = col;
+        this.MAP_WIDTH = col * TILE_SIZE;
+        this.MAP_HEIGHT = row * TILE_SIZE;
         this.el.width = this.MAP_WIDTH / 2;
         this.el.height = this.MAP_HEIGHT / 2;
         this.MAX_RAYS = this.MAP_WIDTH / WALL_STRIP_WIDTH;
         this.RAY_ANGLE_DISTANCE = FOV_ANGLE / this.MAX_RAYS;
-        this.mapTable = mapTable;
-        this.draw();
-        
+        this.draw();          
     }
 
     draw() {
@@ -176,16 +239,18 @@ class Minimap extends Canvas {
 
     drawMap(maxX, maxY) {
         const { TILE_SIZE } = this.core;
+        let objectId, objectColor;
         for (let y = 0; y < maxY; y += 1) {
-            for (let x = 0; x < maxX; x += 1) {        
-                if (this.isBlockCell(x, y)) {
-                    //                        x , y, width, height
+            for (let x = 0; x < maxX; x += 1) {
+                objectId = this.isBlockCell(x, y);
+                if (objectId) {
+                    objectColor = rgb2hex(...this.getObject(objectId).color);
                     this.rect(
                         (x * TILE_SIZE + 1) * this.MINIMAP_SCALE_FACTOR, 
                         (y * TILE_SIZE + 1) * this.MINIMAP_SCALE_FACTOR, 
                         (TILE_SIZE - 2) * this.MINIMAP_SCALE_FACTOR, 
                         (TILE_SIZE - 2) * this.MINIMAP_SCALE_FACTOR, 
-                        '#777'
+                        objectColor
                     );
                 }
             }
@@ -331,10 +396,11 @@ class Player {
 
         let nextHorizontalX = interceptX;
         let nextHorizontalY = interceptY;
-        if (FACING_UP) { nextHorizontalY--; }
+        let hCollidedObject = 0;
 
         while(nextHorizontalX >= 0 && nextHorizontalY >= 0 && nextHorizontalX <= MAP_WIDTH && nextHorizontalY <= MAP_HEIGHT) {
-            if (isCollided(nextHorizontalX, nextHorizontalY)) {
+            hCollidedObject = isCollided(nextHorizontalX, nextHorizontalY - (FACING_UP ? 1 : 0));
+            if (hCollidedObject) {
                 collideHX = nextHorizontalX;
                 collideHY = nextHorizontalY;
                 foundHorizontal = true;
@@ -364,11 +430,11 @@ class Player {
 
         let nextVerticalX = interceptX;
         let nextVerticalY = interceptY;
-
-        if (FACING_LEFT) { nextVerticalX--; }
-
+        let vCollidedObject = 0;
+       
         while(nextVerticalX >= 0 && nextVerticalY >= 0 && nextVerticalX <= MAP_WIDTH && nextVerticalY <= MAP_HEIGHT) {
-            if (isCollided(nextVerticalX, nextVerticalY)) {
+            vCollidedObject = isCollided(nextVerticalX - (FACING_LEFT ? 1 : 0), nextVerticalY);
+            if (vCollidedObject) {
                 collideVX = nextVerticalX;
                 collideVY = nextVerticalY;
                 foundVertical = true;
@@ -390,12 +456,26 @@ class Player {
             : Number.MAX_VALUE;
 
         // store the smallest distance between the player and the wall
+        const distance = Math.min(collideHDistance, collideVDistance);
         const wasHorizontal = collideHDistance < collideVDistance;
-        return {
-            x: wasHorizontal ? collideHX : collideVX,
-            y: wasHorizontal ? collideHY : collideVY,
-            dist: Math.min(collideHDistance, collideVDistance)
+        let result;
+        if (collideHDistance < collideVDistance) {
+            result = {
+                x: collideHX,
+                y: collideHY,
+                objectId: hCollidedObject,
+                axis: 1.1
+            };
+        } else {
+            result = {
+                x: collideVX,
+                y: collideVY,
+                objectId: vCollidedObject,
+                axis: 1
+            };
         }
+
+        return { ...result, angle, dist: Math.min(collideHDistance, collideVDistance) };
     }
 }
 
@@ -410,52 +490,68 @@ class World extends Canvas {
 
         this.container = document.getElementById('world');
         this.container.appendChild(this.el);
-
-        const hRatio = this.map.MAP_WIDTH / this.map.MAP_HEIGHT; 
-        this.el.width = this.map.MAP_WIDTH;
-        this.el.height = this.map.MAP_HEIGHT;
+        const { MAP_WIDTH, MAP_HEIGHT } = core.map;
+        const hRatio = MAP_WIDTH / MAP_HEIGHT; 
+        this.el.width = MAP_WIDTH;
+        this.el.height = MAP_HEIGHT;
         this.el.style.border = '1px solid #000';
         this.draw = this.draw.bind(this);
     }
 
     draw() {
         const { FOV_ANGLE, TILE_SIZE } = this.core;
-        const { rays } = this.player;
-        const distProjPlane = (this.el.width / 2) / Math.tan(FOV_ANGLE / 2);
-        const colWidth = this.el.width / rays.length;
-        const halfH = this.el.height / 2;
-        const colHeightRatio = this.el.height / TILE_SIZE;
+        const { MAP_WIDTH, MAP_HEIGHT, getObject } = this.map;
+        const { rays, rotationAngle } = this.player;
+        // distance between the player and player projection window/plane
+        const distProjPlane = (MAP_WIDTH / 2) / Math.tan(FOV_ANGLE / 2);
+        const colWidth = MAP_WIDTH / rays.length;
+        const halfH = MAP_HEIGHT / 2;
         this.clear();
-        this.rect(0, this.el.height / 2, this.el.width, this.el.height / 2, '#777');
-        rays.forEach((ray, i) => {
-            const distRate = TILE_SIZE / ray.dist;
+        this.rect(
+            0, 
+            0, 
+            MAP_WIDTH, 
+            MAP_HEIGHT, 
+            '#fff'
+        );
+        // could be the floor if we don't use opacity
+        this.rect(0, MAP_HEIGHT / 2, MAP_WIDTH, MAP_HEIGHT / 2, '#777');
+        const max = rays.length;
+        for (let i = 0; i < max; i++) {
+            const { angle, dist, axis, objectId } = rays[i];
+            const correctDistance = dist * Math.cos(angle - rotationAngle)
+            const distRate = TILE_SIZE / correctDistance;
             const wallStripHeight = distRate * distProjPlane;
+            const [red, green, blue] = getObject(objectId).color;
             const color = rgb2hex(
-                255 * distRate / 2 + 75, 
-                255 * distRate / 2 + 75, 
-                0
+                (red / 2 / axis) * (1 + distRate), 
+                (green / 2 / axis) * (1 + distRate), 
+                (blue / 2 / axis) * (1 + distRate),
             );
+            // opacity cool without floor make fog or lightning feeling
+            // const opacity = 200 / correctDistance;
+            // const color = `rgba(${red}, ${green}, ${blue}, ${opacity})`;
             this.rect(
                 i * colWidth, 
-                halfH / 2 - ((wallStripHeight - halfH) / 2), 
+                halfH - (wallStripHeight / 2), 
                 colWidth, 
                 wallStripHeight, 
                 color
-            );
-        });
+            );           
+        }
     }
 }
 
 class Details {
     constructor(core) {
-        const { COLUMS, ROWS } = core.map;
+        const { MAX_X, MAX_Y } = core.map;
         const { moveSpeed, rotationSpeed } = core.player;
         this.core = core;
         this.childs = [];
         this.container = document.getElementById('details');
         const refreshableData = [ 'coord', 'direction', 'distance' ];
         this.data = [
-            ['grid', () => `${COLUMS} x ${ROWS}`], 
+            ['grid', () => `${MAX_X} x ${MAX_Y}`], 
             ['tile', () => core.TILE_SIZE], 
             ['coord', () => {
                 const {x, y} = this.core.player;
@@ -507,9 +603,11 @@ class Core {
         this.WORLD = document.createElement('canvas');
         this.TILE_SIZE = 32;
         this.FOV_ANGLE = 60 * (PI / 180); // need in radian and not 60 degree        
-        this.WALL_STRIP_WIDTH = 1;             // higher number => faster and more pixelated
+        this.WALL_STRIP_WIDTH = 1;        // higher number => faster and more pixelated
         this.player = new Player(this);
         this.map = new Minimap(this);
+        // this.map.generateMap(16, 11);
+        this.map.loadMap(testMap);
         this.world = new World(this);
         this.details = new Details(this);
         setTimeout(() => {
